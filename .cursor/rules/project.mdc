@@ -1,0 +1,49 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# showMeUCode burpsuite 接口显现插件  
+
+## 项目介绍
+showMeUCode 是一个由java编写的java插件，用于burpsuite的接口显现。
+在有些测试场景下，目标站点的真正接口名写在POST请求体中，表面上显示的接口名都是一样的。这就需要一个插件去把真正的接口名显现到备注里面来，然后就可以很方便的在历史记录里面看到真正的接口名，以方便把握测试细节和测试进度以及测试覆盖程度。
+
+ ## 开发环境 
+- 操作系统: windows11
+- 命令行环境: cmd 或者 powershell
+
+## 技术选型
+- 语言及版本: java17
+- 构建工具: maven
+- 插件管理工具: burp suite
+- 依赖montoya-api版本： montoya-api:2025.4
+
+
+## 项目结构
+```bash
+showMeUCode/
+├── docs
+├── pom.xml
+└── src
+    ├── main
+    │   ├── java
+    │   │   └── org
+    │   │       └── oxff
+    │   └── resources
+    └── test
+        └── java
+```
+
+插件入口类文件： ShowMeUCode.java 
+
+## 代码规范
+- 函数和变量命名：使用小驼峰命名法，例如函数：getUserInfo, 变量：userInfo
+- 函数和变量注释：使用中文注释，使用英文冒号 : 进行分割，例如：获取用户信息: getUserInfo: 获取用户信息
+- 常量命名：使用全大写字母，使用下划线分割单词，例如：USER_INFO
+- 模块化设计：使用模块化设计，每个功能模块应该单独一个类或者一个文件，避免代码冗余和耦合。
+- 代码列数： 单行最多120个字符
+- 代码文件行数： 一个文件代码文件最多不超过500行
+- 函数功能要求：一个函数只做一件事情，并把这件事情做好
+- 边界检查：尽可能使用边界检查，避免出现空指针异常等
+- 异常处理：尽可能使用try...except...finally...进行异常处理，并使用日志记录异常信息
