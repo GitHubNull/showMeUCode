@@ -82,7 +82,7 @@ public class RequestProcessor {
             // 获取请求的注释对象并修改
             Annotations annotations = request.annotations();
             annotations.setNotes(interfaceName);
-            annotations.setHighlightColor(HighlightColor.BLUE);
+//            annotations.setHighlightColor(HighlightColor.BLUE);
             
             // 直接返回原始请求，注释已经设置
             return request;
