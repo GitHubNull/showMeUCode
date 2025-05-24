@@ -233,4 +233,14 @@ public class ConfigManager {
         this.defaultRuleType = defaultRuleType;
         saveConfig();
     }
+    
+    /**
+     * 清空所有规则: 清空URL匹配规则和提取规则
+     */
+    public void clearAllRules() {
+        urlPatterns.clear();
+        extractionRules.clear();
+        saveConfig();
+        logger.logToOutput("已清空所有规则");
+    }
 } 

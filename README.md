@@ -58,7 +58,7 @@ ShowMeUCode插件通过自动从HTTP请求体中提取真实接口名称，并�
 
 ## 构建说明
 
-如需从源码构建：
+### 从源码构建
 
 ```bash
 git clone https://github.com/GitHubNull/showMeUCode.git
@@ -67,6 +67,28 @@ mvn clean package
 ```
 
 构建完成后，JAR文件将位于`target`目录中。
+
+### 自动发布
+
+本项目配置了GitHub Actions自动发布流程：
+
+#### 快速发布新版本
+```bash
+# 使用发布脚本（推荐）
+./scripts/release.sh 1.0.1
+
+# 或手动创建tag
+git tag -a v1.0.1 -m "Release version 1.0.1"
+git push origin v1.0.1
+```
+
+#### 自动发布功能
+- ✅ 自动编译构建JAR文件
+- ✅ 自动创建GitHub Release
+- ✅ 自动生成发布说明
+- ✅ 自动上传构建产物
+
+详见：[GitHub Actions自动发布指南](docs/github-actions-guide.md)
 
 ## 系统要求
 

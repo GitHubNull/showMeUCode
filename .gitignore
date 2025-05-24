@@ -36,3 +36,10 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### GitHub Actions ###
+changelog_temp.md
+
+### Release Scripts ###
+*.bak
+*.tmp

@@ -89,13 +89,13 @@ public class ShowMeUCode implements BurpExtension, HttpHandler {
     }
 
     /**
-     * 初始化需要处理的Burp工具类型: 默认处理代理、重复器、入侵者和扫描器的请求
+     * 初始化需要处理的Burp工具类型: 默认处理代理、入侵者、日志器和扩展的请求
      */
     private void initToolTypes() {
         toolsToProcess.add(ToolType.PROXY);
-        toolsToProcess.add(ToolType.REPEATER);
         toolsToProcess.add(ToolType.INTRUDER);
-        toolsToProcess.add(ToolType.SCANNER);
+        toolsToProcess.add(ToolType.LOGGER);
+        toolsToProcess.add(ToolType.EXTENSIONS);
     }
 
     /**

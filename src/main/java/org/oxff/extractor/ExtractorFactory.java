@@ -44,6 +44,8 @@ public class ExtractorFactory {
                 return new JsonPathExtractor(rule.getPattern(), logger);
             case XPATH:
                 return new XPathExtractor(rule.getPattern(), logger);
+            case FORM:
+                return new FormExtractor(rule.getPattern(), logger);
             default:
                 if (logger != null) {
                     logger.logToError("未知的规则类型: " + rule.getRuleType());
@@ -70,6 +72,8 @@ public class ExtractorFactory {
                 return new JsonPathExtractor(pattern, logger);
             case XPATH:
                 return new XPathExtractor(pattern, logger);
+            case FORM:
+                return new FormExtractor(pattern, logger);
             default:
                 if (logger != null) {
                     logger.logToError("未知的规则类型: " + ruleType);

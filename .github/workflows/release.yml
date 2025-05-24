@@ -1,0 +1,194 @@
+name: 自动发布版本
+
+on:
+  push:
+    tags:
+      - 'v*'  # 当推送以v开头的tag时触发，如v1.0.0
+
+jobs:
+  release:
+    name: 构建并发布版本
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 需要写权限来创建release
+      
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 获取完整历史记录用于生成变更日志
+        
+    - name: 设置Java环境
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: 缓存Maven依赖
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+        
+    - name: 提取版本信息
+      id: version
+      run: |
+        # 从tag中提取版本号（去除v前缀）
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        echo "提取的版本号: $VERSION"
+        
+    - name: 验证版本号格式
+      run: |
+        if [[ ! "${{ steps.version.outputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "错误: 版本号格式无效。应该是x.y.z格式，如1.0.0"
+          exit 1
+        fi
+        echo "版本号格式验证通过: ${{ steps.version.outputs.version }}"
+        
+    - name: 更新pom.xml版本号
+      run: |
+        # 更新Maven项目版本号
+        mvn versions:set -DnewVersion=${{ steps.version.outputs.version }} -DgenerateBackupPoms=false
+        echo "已更新pom.xml版本号为: ${{ steps.version.outputs.version }}"
+        
+    - name: 编译和打包
+      run: |
+        echo "开始编译项目..."
+        mvn clean compile
+        echo "开始打包项目..."
+        mvn package -DskipTests
+        
+    - name: 验证构建产物
+      run: |
+        JAR_FILE="target/showMeUCode-${{ steps.version.outputs.version }}.jar"
+        if [ ! -f "$JAR_FILE" ]; then
+          echo "错误: JAR文件不存在: $JAR_FILE"
+          exit 1
+        fi
+        
+        # 显示文件信息
+        ls -la target/*.jar
+        echo "JAR文件大小: $(du -h $JAR_FILE | cut -f1)"
+        
+    - name: 生成变更日志
+      id: changelog
+      run: |
+        echo "正在生成变更日志..."
+        
+        # 获取上一个tag
+        PREVIOUS_TAG=$(git tag --sort=-version:refname | head -2 | tail -1)
+        if [ -z "$PREVIOUS_TAG" ]; then
+          echo "这是第一个版本，使用所有提交记录"
+          PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
+        fi
+        
+        echo "从 $PREVIOUS_TAG 到 ${{ steps.version.outputs.tag }} 的变更:"
+        
+        # 生成变更日志
+        CHANGELOG=$(cat << 'EOF'
+        ## 🚀 版本 ${{ steps.version.outputs.version }} 发布说明
+        
+        ### 📦 构建信息
+        - **版本号**: ${{ steps.version.outputs.version }}
+        - **发布日期**: $(date '+%Y年%m月%d日')
+        - **Java版本**: 17
+        - **构建工具**: Maven
+        
+        ### 🔄 主要变更
+        EOF
+        )
+        
+        # 添加提交记录
+        git log --pretty=format:"- %s (%h)" ${PREVIOUS_TAG}..${{ steps.version.outputs.tag }} >> changelog_temp.md
+        
+        # 检查是否有docs/release-notes.md文件
+        if [ -f "docs/release-notes.md" ]; then
+          echo "" >> changelog_temp.md
+          echo "### 📋 详细发布说明" >> changelog_temp.md
+          echo "请查看 [完整发布说明](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/docs/release-notes.md)" >> changelog_temp.md
+        fi
+        
+        # 添加下载和使用说明
+        cat << 'EOF' >> changelog_temp.md
+        
+        ### 📥 下载和安装
+        
+        1. **下载JAR文件**: 点击下方 Assets 中的 `showMeUCode-${{ steps.version.outputs.version }}.jar`
+        2. **安装到Burp Suite**:
+           - 打开Burp Suite
+           - 进入 Extensions 标签页
+           - 点击 Add 按钮
+           - 选择 Java 扩展类型
+           - 选择下载的JAR文件
+           - 点击 Next 完成安装
+        
+        ### 🎯 功能特性
+        - ✅ 自动从HTTP请求体中提取真实接口名称
+        - ✅ 支持JSON、XML、表单数据等多种格式
+        - ✅ 提供正则表达式、JSON路径、XPath等提取规则
+        - ✅ 可视化配置界面，支持规则增删改
+        - ✅ 配置导入导出功能
+        - ✅ 支持Proxy、Intruder、Logger、Extensions工具类型
+        
+        ### 📚 使用文档
+        - [用户指南](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/docs/user-guide.md)
+        - [编辑功能测试指南](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/docs/edit-function-test-guide.md)
+        - [项目README](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/README.md)
+        
+        ### ⚠️ 系统要求
+        - Java 17或更高版本
+        - Burp Suite Professional/Community 2020.12或更高版本
+        
+        ---
+        
+        **如有问题或建议，请提交 [Issue](https://github.com/${{ github.repository }}/issues)**
+        EOF
+        
+        # 保存变更日志到文件
+        echo "变更日志已生成"
+        
+    - name: 创建GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        release_name: ShowMeUCode v${{ steps.version.outputs.version }}
+        body_path: changelog_temp.md
+        draft: false
+        prerelease: false
+        
+    - name: 上传JAR文件到Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: target/showMeUCode-${{ steps.version.outputs.version }}.jar
+        asset_name: showMeUCode-${{ steps.version.outputs.version }}.jar
+        asset_content_type: application/java-archive
+        
+    - name: 上传项目文档
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: README.md
+        asset_name: README.md
+        asset_content_type: text/markdown
+        
+    - name: 发布成功通知
+      run: |
+        echo "🎉 版本 ${{ steps.version.outputs.version }} 发布成功！"
+        echo "📦 Release URL: ${{ steps.create_release.outputs.html_url }}"
+        echo "📥 JAR下载: ${{ steps.create_release.outputs.html_url }}/download/showMeUCode-${{ steps.version.outputs.version }}.jar"
+        echo ""
+        echo "🚀 发布完成，您可以："
+        echo "1. 查看Release页面确认信息"
+        echo "2. 测试下载的JAR文件"
+        echo "3. 更新项目文档中的版本信息" 

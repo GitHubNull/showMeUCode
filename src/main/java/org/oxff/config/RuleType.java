@@ -17,7 +17,12 @@ public enum RuleType {
     /**
      * XPath规则
      */
-    XPATH("XPath");
+    XPATH("XPath"),
+    
+    /**
+     * 表单参数规则
+     */
+    FORM("表单参数");
     
     private final String displayName;
     
