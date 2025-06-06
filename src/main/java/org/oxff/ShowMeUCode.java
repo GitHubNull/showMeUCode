@@ -12,6 +12,7 @@ import burp.api.montoya.logging.Logging;
 import org.oxff.config.ConfigManager;
 import org.oxff.http.RequestProcessor;
 import org.oxff.ui.ConfigTab;
+import org.oxff.ui.ContextMenuHandler;
 
 import javax.swing.*;
 import java.util.HashSet;
@@ -23,7 +24,7 @@ import java.util.Set;
 public class ShowMeUCode implements BurpExtension, HttpHandler {
     // 常量定义
     public static final String EXTENSION_NAME = "showMeUCode";
-    public static final String EXTENSION_VERSION = "1.0.0";
+    public static final String EXTENSION_VERSION = "1.1.0";
     public static final String EXTENSION_DESCRIPTION = "从请求体中提取并显示真实接口名称";
     public static final String EXTENSION_AUTHOR = "GitHubNull";
     public static final String EXTENSION_HOMEPAGE = "https://github.com/GitHubNull/showMeUCode";
@@ -36,6 +37,8 @@ public class ShowMeUCode implements BurpExtension, HttpHandler {
     private RequestProcessor requestProcessor;
     // 配置管理器
     private ConfigManager configManager;
+    // 右键菜单处理器
+    private ContextMenuHandler contextMenuHandler;
     // 需要处理的Burp工具类型
     private final Set<ToolType> toolsToProcess = new HashSet<>();
     // 是否启用插件
@@ -69,11 +72,17 @@ public class ShowMeUCode implements BurpExtension, HttpHandler {
             // 初始化请求处理器
             requestProcessor = new RequestProcessor(montoyaApi, configManager);
             
+            // 初始化右键菜单处理器
+            contextMenuHandler = new ContextMenuHandler(montoyaApi, configManager);
+            
             // 初始化需要处理的工具类型
             initToolTypes();
             
             // 注册HTTP请求处理器
             montoyaApi.http().registerHttpHandler(this);
+            
+            // 注册右键菜单处理器
+            montoyaApi.userInterface().registerContextMenuItemsProvider(contextMenuHandler);
             
             // 注册UI组件
             SwingUtilities.invokeLater(() -> {
@@ -82,6 +91,10 @@ public class ShowMeUCode implements BurpExtension, HttpHandler {
             });
             
             logger.logToOutput("插件初始化完成，已准备就绪");
+            logger.logToOutput("功能介绍:");
+            logger.logToOutput("- 自动提取HTTP请求中的接口名称并添加到备注");
+            logger.logToOutput("- 在代理历史记录中右键可批量处理历史请求");
+            logger.logToOutput("- 支持Target范围过滤和自定义提取规则");
         } catch (Exception e) {
             logger.logToError("插件初始化失败: " + e.getMessage());
             e.printStackTrace();

@@ -2,7 +2,6 @@ package org.oxff.http;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.Annotations;
-import burp.api.montoya.core.HighlightColor;
 import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.handler.HttpRequestToBeSent;
 import burp.api.montoya.logging.Logging;
