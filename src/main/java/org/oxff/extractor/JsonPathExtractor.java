@@ -4,9 +4,11 @@ import burp.api.montoya.logging.Logging;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jayway.jsonpath.Configuration;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
+import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 
 /**
  * JSON路径提取器: 使用JSON路径从JSON格式的请求体中提取接口名称
@@ -43,27 +45,20 @@ public class JsonPathExtractor implements InterfaceNameExtractor {
             if (!isJsonContent(content)) {
                 return Optional.empty();
             }
-            
-            // 使用JavaScript引擎来执行JSON路径表达式
-            ScriptEngineManager manager = new ScriptEngineManager();
-            ScriptEngine engine = manager.getEngineByName("JavaScript");
-            
-            // 将内容转换为JavaScript对象
-            engine.eval("var jsonObj = " + content + ";");
-            
-            // 构建路径表达式
-            String pathExpression = buildPathExpression(jsonPath);
-            
-            // 执行表达式并获取结果
-            Object result = engine.eval(pathExpression);
-            
+
+            // 使用 Jackson 解析 JSON 并配置 JsonPath
+            ObjectMapper objectMapper = new ObjectMapper();
+            Configuration configuration = Configuration.builder()
+                    .jsonProvider(new JacksonJsonProvider(objectMapper))
+                    .mappingProvider(new JacksonMappingProvider(objectMapper))
+                    .build();
+
+            // 执行 JsonPath 表达式并获取结果
+            Object result = JsonPath.using(configuration).parse(content).read(jsonPath);
+
             // 如果结果不为空，返回结果
             if (result != null) {
                 return Optional.of(result.toString());
-            }
-        } catch (ScriptException e) {
-            if (logger != null) {
-                logger.logToError("JSON路径提取失败: " + e.getMessage());
             }
         } catch (Exception e) {
             if (logger != null) {
@@ -84,25 +79,4 @@ public class JsonPathExtractor implements InterfaceNameExtractor {
         return jsonPattern.matcher(content.trim()).matches();
     }
     
-    /**
-     * 构建路径表达式
-     * @param path JSON路径
-     * @return JavaScript路径表达式
-     */
-    private String buildPathExpression(String path) {
-        // 如果路径以$开头，表示根节点
-        if (path.startsWith("$.")) {
-            path = path.substring(2);
-        } else if (path.startsWith("$")) {
-            path = path.substring(1);
-        }
-        
-        // 替换[]表示法为JavaScript访问方式
-        path = path.replaceAll("\\['([^']+)'\\]", ".$1");
-        path = path.replaceAll("\\[\"([^\"]+)\"\\]", ".$1");
-        path = path.replaceAll("\\[(\\d+)\\]", "[$1]");
-        
-        // 构建最终表达式
-        return "jsonObj" + (path.startsWith(".") ? "" : ".") + path;
-    }
 } 

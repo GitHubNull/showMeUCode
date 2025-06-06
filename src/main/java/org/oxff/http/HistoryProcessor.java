@@ -69,9 +69,9 @@ public class HistoryProcessor {
                     
                     // 检查URL是否匹配配置的模式
                     String url = historyItem.finalRequest().url();
-                    if (!isUrlMatchPattern(url)) {
-                        continue;
-                    }
+//                    if (!isUrlMatchPattern(url)) {
+//                        continue;
+//                    }
                     
                     // 获取请求体
                     String body = historyItem.finalRequest().bodyToString().trim();
@@ -126,7 +126,7 @@ public class HistoryProcessor {
             }
             
             // 检查是否在scope范围内，使用URL字符串而不是HttpRequest对象
-            return scope.isInScope(historyItem.finalRequest().url());
+            return scope.isInScope(historyItem.request().url());
         } catch (Exception e) {
             // 如果出现异常，默认不在范围内
             logger.logToError("检查scope时发生错误: " + e.getMessage());
