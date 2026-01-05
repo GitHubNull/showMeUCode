@@ -1,25 +1,41 @@
 # ShowMeUCode
 
-ShowMeUCode是一个Burp Suite插件，用于在HTTP历史记录中显示隐藏在请求体中的真实接口名称。
+[![GitHub release](https://img.shields.io/github/v/release/GitHubNull/showMeUCode)](https://github.com/GitHubNull/showMeUCode/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Java](https://img.shields.io/badge/Java-17+-blue.svg)](https://openjdk.java.net/)
+
+ShowMeUCode是一个Burp Suite插件，用于在HTTP历史记录中自动提取并显示隐藏在请求中的真实接口名称。
 
 ## 项目背景
 
-在Web安全测试过程中，许多现代Web应用采用统一的API网关架构，所有API请求都指向同一个URL（如`/api/v1/gateway`或`/api/service`），而真正的接口名称或方法名则被包含在请求体中。这使得安全测试人员在使用Burp Suite查看历史记录时，难以区分不同的API请求，从而影响测试效率和测试覆盖度的把控。
+在Web安全测试过程中，许多现代Web应用采用统一的API网关架构，所有API请求都指向同一个URL（如`/api/v1/gateway`或`/api/service`），而真正的接口名称或方法名则被包含在请求体或URL参数中。这使得安全测试人员在使用Burp Suite查看历史记录时，难以区分不同的API请求，从而影响测试效率和测试覆盖度的把控。
 
-ShowMeUCode插件通过自动从HTTP请求体中提取真实接口名称，并将其显示在Burp Suite的请求备注中，帮助测试人员更直观地管理测试进度。
+ShowMeUCode插件通过自动从HTTP请求的URL参数或请求体中提取真实接口名称，并将其显示在Burp Suite的请求备注中，帮助测试人员更直观地管理测试进度。
 
 ## 主要功能
 
-- 自动从HTTP请求体中提取真实接口名称
-- 支持多种常见数据格式（JSON、XML、表单数据）
-- 提供灵活的提取规则配置（正则表达式、JSON路径、XPath）
-- 提供简洁直观的用户界面
-- 可配置的URL匹配规则
-- 配置保存与加载功能
+### 核心功能
+
+- **自动实时提取**：HTTP请求经过时自动提取接口名称并标记到备注列
+- **URL优先提取**：先从URL参数中提取接口名称，失败后再从请求体提取
+- **多种数据格式支持**：支持JSON、XML、表单数据等常见格式
+- **灵活提取规则**：支持正则表达式、JSON路径、XPath等多种提取方式
+
+### 批量处理功能
+
+- **批量提取（所有请求）**：一键为所有历史请求提取并标记接口名称
+- **选中请求提取**：仅对选中的请求进行接口名称提取
+- **单个请求提取**：对当前查看的请求进行接口名称提取
+
+### 接口名称导出
+
+- **复制所有接口名称到剪贴板**：提取所有历史记录中的接口名称，去重后复制到剪贴板
+- **复制选中请求接口名称到剪贴板**：提取选中请求的接口名称，去重后复制到剪贴板
+- 方便用户检查接口测试覆盖情况
 
 ## 安装方法
 
-1. 下载最新版本的`showMeUCode.jar`文件
+1. 从 [Releases](https://github.com/GitHubNull/showMeUCode/releases) 下载最新版本的`showMeUCode-x.x.x.jar`文件
 2. 打开Burp Suite
 3. 进入"Extensions"标签页
 4. 点击"Add"按钮
@@ -29,32 +45,66 @@ ShowMeUCode插件通过自动从HTTP请求体中提取真实接口名称，并�
 
 ## 使用方法
 
-1. 安装完成后，在Burp Suite的Extensions标签页中找到ShowMeUCode插件
-2. 进入插件配置面板，设置需要监听的URL模式和提取规则
-3. 开启插件功能
-4. 使用Burp Suite拦截或发送请求
-5. 在HTTP历史记录中查看带有提取出的接口名称的请求备注
+### 自动提取
+
+安装完成后，插件会自动对经过Burp的HTTP请求进行接口名称提取，并标记到请求的备注列中。
+
+### 右键菜单操作
+
+在HTTP History或Target中右键点击，可以看到以下菜单选项：
+
+| 菜单项 | 功能说明 |
+|--------|----------|
+| 批量提取接口名称(所有请求) | 为所有历史请求批量提取并标记接口名称 |
+| 提取选中请求接口名称 (N个) | 仅对选中的N个请求进行提取 |
+| 提取当前请求接口名称 | 对当前查看的单个请求进行提取 |
+| 复制所有接口名称到剪贴板(去重) | 提取并复制所有不重复的接口名称 |
+| 复制选中请求接口名称到剪贴板(去重) | 提取并复制选中请求的接口名称 |
 
 ## 配置说明
 
-### URL匹配规则
+### URL提取规则
 
-指定哪些URL的请求需要进行处理。支持正则表达式，例如：
-- `.*api/gateway.*` - 匹配所有包含api/gateway的URL
-- `^https://example.com/api/.*` - 匹配特定域名下的API请求
+用于从URL参数中提取接口名称，使用正则表达式的**捕获组**提取。
 
-### 提取规则
+**示例场景**：接口名称在URL参数中
+- URL: `http://test.com/api.do?method=getUserById&id=1`
+- 规则: `method=([^&]+)`
+- 提取结果: `getUserById`
 
-定义如何从请求体中提取接口名称。支持多种格式：
+### 请求体提取规则
+
+定义如何从请求体中提取接口名称，支持多种格式：
 
 1. **正则表达式**：适用于各种文本格式
-   例如：`"method"\s*:\s*"([^"]+)"`
+   ```
+   "method"\s*:\s*"([^"]+)"
+   ```
 
 2. **JSON路径**：适用于JSON格式的请求
-   例如：`$.method` 或 `$.data.action`
+   ```
+   $.method
+   $.data.action
+   ```
 
 3. **XPath**：适用于XML格式的请求
-   例如：`//methodName` 或 `/root/action/@name`
+   ```
+   //methodName
+   /root/action/@name
+   ```
+
+4. **表单参数**：适用于表单提交
+   ```
+   method
+   action
+   ```
+
+### 提取逻辑
+
+1. 首先使用URL规则尝试从URL中提取接口名称
+2. 如果URL提取成功，直接使用提取结果
+3. 如果URL提取失败，继续使用请求体规则从body中提取
+4. 如果都失败，则不进行标记
 
 ## 构建说明
 
@@ -72,23 +122,14 @@ mvn clean package
 
 本项目配置了GitHub Actions自动发布流程：
 
-#### 快速发布新版本
 ```bash
 # 使用发布脚本（推荐）
-./scripts/release.sh 1.0.1
+./scripts/release.sh 1.1.0
 
 # 或手动创建tag
-git tag -a v1.0.1 -m "Release version 1.0.1"
-git push origin v1.0.1
+git tag -a v1.1.0 -m "Release version 1.1.0"
+git push origin v1.1.0
 ```
-
-#### 自动发布功能
-- ✅ 自动编译构建JAR文件
-- ✅ 自动创建GitHub Release
-- ✅ 自动生成发布说明
-- ✅ 自动上传构建产物
-
-详见：[GitHub Actions自动发布指南](docs/github-actions-guide.md)
 
 ## 系统要求
 
@@ -97,7 +138,11 @@ git push origin v1.0.1
 
 ## 开源许可
 
-本项目采用MIT许可证。
+本项目采用 [MIT许可证](LICENSE)。
+
+## 免责声明
+
+本工具仅供合法的安全研究、渗透测试和教育学习目的使用。使用者必须确保在获得适当授权的情况下使用本工具。详见 [免责声明](DISCLAIMER.md)。
 
 ## 贡献指南
 
@@ -116,4 +161,4 @@ GitHubNull - [https://github.com/GitHubNull](https://github.com/GitHubNull)
 ## 致谢
 
 - 感谢Burp Suite提供的优秀安全测试平台
-- 感谢所有为本项目提供反馈和建议的用户 
+- 感谢所有为本项目提供反馈和建议的用户
