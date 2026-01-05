@@ -2,6 +2,7 @@ package org.oxff.http;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.Annotations;
+import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.proxy.ProxyHttpRequestResponse;
 import burp.api.montoya.logging.Logging;
 import burp.api.montoya.scope.Scope;
@@ -106,6 +107,58 @@ public class HistoryProcessor {
                               ", 找到接口名称的请求数: " + foundInterfaceCount);
         } catch (Exception e) {
             logger.logToError("批量处理历史记录时发生错误: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return foundInterfaceCount;
+    }
+    
+    /**
+     * 处理选中的请求列表: 对指定的请求列表提取接口名称并添加到备注中
+     * @param selectedRequests 选中的请求列表
+     * @return 成功处理的请求数量
+     */
+    public int processSelectedRequests(List<HttpRequestResponse> selectedRequests) {
+        int processedCount = 0;
+        int foundInterfaceCount = 0;
+        
+        try {
+            logger.logToOutput("开始处理选中的请求，共 " + selectedRequests.size() + " 个...");
+            
+            for (HttpRequestResponse requestResponse : selectedRequests) {
+                try {
+                    processedCount++;
+                    
+                    // 获取请求URL
+                    String url = requestResponse.request().url();
+                    
+                    // 获取请求体
+                    String body = requestResponse.request().bodyToString().trim();
+                    if (body.isEmpty()) {
+                        continue;
+                    }
+                    
+                    // 尝试提取接口名称
+                    Optional<String> interfaceNameOpt = extractInterfaceName(body);
+                    if (interfaceNameOpt.isPresent()) {
+                        String interfaceName = interfaceNameOpt.get();
+                        
+                        // 设置备注
+                        Annotations annotations = requestResponse.annotations();
+                        annotations.setNotes(interfaceName);
+                        
+                        foundInterfaceCount++;
+                        logger.logToOutput("为请求 [" + url + "] 添加接口备注: " + interfaceName);
+                    }
+                } catch (Exception e) {
+                    logger.logToError("处理选中请求时发生错误: " + e.getMessage());
+                }
+            }
+            
+            logger.logToOutput("选中请求处理完成！处理的请求数: " + processedCount + 
+                              ", 找到接口名称的请求数: " + foundInterfaceCount);
+        } catch (Exception e) {
+            logger.logToError("处理选中请求列表时发生错误: " + e.getMessage());
             e.printStackTrace();
         }
         

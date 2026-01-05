@@ -2,6 +2,7 @@ package org.oxff.ui;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.ToolType;
+import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.logging.Logging;
 import burp.api.montoya.ui.contextmenu.ContextMenuEvent;
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider;
@@ -60,21 +61,36 @@ public class ContextMenuHandler implements ContextMenuItemsProvider {
     @Override
     public List<Component> provideMenuItems(ContextMenuEvent event) {
         List<Component> menuItems = new ArrayList<>();
-        if (!event.isFromTool(ToolType.PROXY)) {
+        
+        // 支持 Proxy 和 Target 工具类型
+        if (!event.isFromTool(ToolType.PROXY) && !event.isFromTool(ToolType.TARGET)) {
             return menuItems;
         }
 
         // 添加批量处理菜单项
-        JMenuItem batchProcessItem = new JMenuItem("批量提取接口名称");
+        JMenuItem batchProcessItem = new JMenuItem("批量提取接口名称(所有请求)");
         batchProcessItem.setToolTipText("为历史记录中的所有请求批量提取并添加接口名称备注");
         batchProcessItem.addActionListener(new BatchProcessActionListener());
         menuItems.add(batchProcessItem);
 
-        // 添加分隔符
-        menuItems.add(new JSeparator());
+        // 获取选中的请求列表
+        List<HttpRequestResponse> selectedRequests = event.selectedRequestResponses();
+        
+        // 如果选中了多个请求，添加处理选中请求的菜单项
+        if (selectedRequests != null && !selectedRequests.isEmpty()) {
+            // 添加分隔符
+            menuItems.add(new JSeparator());
+            
+            JMenuItem selectedProcessItem = new JMenuItem("提取选中请求接口名称 (" + selectedRequests.size() + "个)");
+            selectedProcessItem.setToolTipText("为选中的 " + selectedRequests.size() + " 个请求提取并添加接口名称备注");
+            selectedProcessItem.addActionListener(new SelectedRequestsProcessActionListener(selectedRequests));
+            menuItems.add(selectedProcessItem);
+        }
 
-        // 添加单个请求处理菜单项（如果选中了单个请求）
+        // 添加单个请求处理菜单项（如果在消息编辑器中选中了单个请求）
         if (event.messageEditorRequestResponse().isPresent()) {
+            menuItems.add(new JSeparator());
+            
             JMenuItem singleProcessItem = new JMenuItem("提取当前请求接口名称");
             singleProcessItem.setToolTipText("为当前选中的请求提取并添加接口名称备注");
             singleProcessItem.addActionListener(new SingleProcessActionListener(event));
@@ -127,6 +143,58 @@ public class ContextMenuHandler implements ContextMenuItemsProvider {
                             logger.logToError("批量处理时发生错误: " + ex.getMessage());
                             SwingUtilities.invokeLater(() -> {
                                 // progressDialog.dispose();
+                                JOptionPane.showMessageDialog(
+                                        null,
+                                        "处理过程中发生错误：" + ex.getMessage(),
+                                        "错误",
+                                        JOptionPane.ERROR_MESSAGE);
+                            });
+                        }
+                    }).start();
+                }
+            });
+        }
+    }
+
+    /**
+     * 选中请求处理动作监听器: 处理选中的多个请求的接口名称提取
+     */
+    private class SelectedRequestsProcessActionListener implements ActionListener {
+        private final List<HttpRequestResponse> selectedRequests;
+
+        public SelectedRequestsProcessActionListener(List<HttpRequestResponse> selectedRequests) {
+            this.selectedRequests = selectedRequests;
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            SwingUtilities.invokeLater(() -> {
+                // 显示确认对话框
+                int option = JOptionPane.showConfirmDialog(
+                        null,
+                        "即将处理选中的 " + selectedRequests.size() + " 个请求，提取接口名称并添加到备注中。\n" +
+                                "标记规则：使用配置中已启用的提取规则\n" +
+                                "是否继续？",
+                        "处理选中请求确认",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.QUESTION_MESSAGE);
+
+                if (option == JOptionPane.YES_OPTION) {
+                    // 在后台线程中执行处理
+                    new Thread(() -> {
+                        try {
+                            int processedCount = historyProcessor.processSelectedRequests(selectedRequests);
+
+                            SwingUtilities.invokeLater(() -> {
+                                JOptionPane.showMessageDialog(
+                                        null,
+                                        "处理完成！\n成功为 " + processedCount + " 个请求添加了接口名称备注。",
+                                        "处理完成",
+                                        JOptionPane.INFORMATION_MESSAGE);
+                            });
+                        } catch (Exception ex) {
+                            logger.logToError("处理选中请求时发生错误: " + ex.getMessage());
+                            SwingUtilities.invokeLater(() -> {
                                 JOptionPane.showMessageDialog(
                                         null,
                                         "处理过程中发生错误：" + ex.getMessage(),
