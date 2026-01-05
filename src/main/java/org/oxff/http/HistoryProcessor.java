@@ -12,8 +12,10 @@ import org.oxff.config.UrlPattern;
 import org.oxff.extractor.ExtractorFactory;
 import org.oxff.extractor.InterfaceNameExtractor;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -111,6 +113,84 @@ public class HistoryProcessor {
         }
         
         return foundInterfaceCount;
+    }
+    
+    /**
+     * 从所有历史记录中提取接口名称并去重
+     * @return 去重后的接口名称集合（保持插入顺序）
+     */
+    public Set<String> extractAllInterfaceNames() {
+        Set<String> interfaceNames = new LinkedHashSet<>();
+        
+        try {
+            logger.logToOutput("开始提取所有历史记录的接口名称...");
+            
+            List<ProxyHttpRequestResponse> proxyHistory = montoyaApi.proxy().history();
+            Scope scope = montoyaApi.scope();
+            
+            for (ProxyHttpRequestResponse historyItem : proxyHistory) {
+                try {
+                    if (!isInScope(historyItem, scope)) {
+                        continue;
+                    }
+                    
+                    String body = historyItem.finalRequest().bodyToString().trim();
+                    if (body.isEmpty()) {
+                        continue;
+                    }
+                    
+                    Optional<String> interfaceNameOpt = extractInterfaceName(body);
+                    if (interfaceNameOpt.isPresent()) {
+                        interfaceNames.add(interfaceNameOpt.get());
+                    }
+                } catch (Exception e) {
+                    logger.logToError("提取历史记录接口名称时发生错误: " + e.getMessage());
+                }
+            }
+            
+            logger.logToOutput("提取完成，共找到 " + interfaceNames.size() + " 个不重复的接口名称");
+        } catch (Exception e) {
+            logger.logToError("提取历史记录接口名称时发生错误: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return interfaceNames;
+    }
+    
+    /**
+     * 从选中的请求列表中提取接口名称并去重
+     * @param selectedRequests 选中的请求列表
+     * @return 去重后的接口名称集合（保持插入顺序）
+     */
+    public Set<String> extractInterfaceNamesFromSelected(List<HttpRequestResponse> selectedRequests) {
+        Set<String> interfaceNames = new LinkedHashSet<>();
+        
+        try {
+            logger.logToOutput("开始提取选中请求的接口名称，共 " + selectedRequests.size() + " 个请求...");
+            
+            for (HttpRequestResponse requestResponse : selectedRequests) {
+                try {
+                    String body = requestResponse.request().bodyToString().trim();
+                    if (body.isEmpty()) {
+                        continue;
+                    }
+                    
+                    Optional<String> interfaceNameOpt = extractInterfaceName(body);
+                    if (interfaceNameOpt.isPresent()) {
+                        interfaceNames.add(interfaceNameOpt.get());
+                    }
+                } catch (Exception e) {
+                    logger.logToError("提取选中请求接口名称时发生错误: " + e.getMessage());
+                }
+            }
+            
+            logger.logToOutput("提取完成，共找到 " + interfaceNames.size() + " 个不重复的接口名称");
+        } catch (Exception e) {
+            logger.logToError("提取选中请求接口名称时发生错误: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return interfaceNames;
     }
     
     /**

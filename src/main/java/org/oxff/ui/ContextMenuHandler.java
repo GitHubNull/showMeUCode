@@ -16,11 +16,14 @@ import org.oxff.http.HistoryProcessor;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -97,7 +100,140 @@ public class ContextMenuHandler implements ContextMenuItemsProvider {
             menuItems.add(singleProcessItem);
         }
 
+        // 添加分隔符
+        menuItems.add(new JSeparator());
+        
+        // 添加复制接口名称到剪贴板菜单项（所有请求）
+        JMenuItem copyAllToClipboardItem = new JMenuItem("复制所有接口名称到剪贴板(去重)");
+        copyAllToClipboardItem.setToolTipText("从所有历史记录中提取接口名称，去重后复制到剪贴板");
+        copyAllToClipboardItem.addActionListener(new CopyAllToClipboardActionListener());
+        menuItems.add(copyAllToClipboardItem);
+        
+        // 如果选中了请求，添加复制选中请求接口名称到剪贴板菜单项
+        if (selectedRequests != null && !selectedRequests.isEmpty()) {
+            JMenuItem copySelectedToClipboardItem = new JMenuItem("复制选中请求接口名称到剪贴板(去重) (" + selectedRequests.size() + "个)");
+            copySelectedToClipboardItem.setToolTipText("从选中的请求中提取接口名称，去重后复制到剪贴板");
+            copySelectedToClipboardItem.addActionListener(new CopySelectedToClipboardActionListener(selectedRequests));
+            menuItems.add(copySelectedToClipboardItem);
+        }
+
         return menuItems;
+    }
+
+    /**
+     * 复制所有接口名称到剪贴板动作监听器
+     */
+    private class CopyAllToClipboardActionListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            new Thread(() -> {
+                try {
+                    Set<String> interfaceNames = historyProcessor.extractAllInterfaceNames();
+                    
+                    if (interfaceNames.isEmpty()) {
+                        SwingUtilities.invokeLater(() -> {
+                            JOptionPane.showMessageDialog(
+                                    null,
+                                    "未找到任何接口名称。\n请检查历史记录和提取规则配置。",
+                                    "提示",
+                                    JOptionPane.INFORMATION_MESSAGE);
+                        });
+                        return;
+                    }
+                    
+                    // 将接口名称转换为字符串，每行一个
+                    String result = String.join("\n", interfaceNames);
+                    
+                    // 复制到剪贴板
+                    copyToClipboard(result);
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(
+                                null,
+                                "已复制 " + interfaceNames.size() + " 个不重复的接口名称到剪贴板！\n可用于检查接口测试覆盖情况。",
+                                "复制成功",
+                                JOptionPane.INFORMATION_MESSAGE);
+                    });
+                    
+                    logger.logToOutput("已复制 " + interfaceNames.size() + " 个接口名称到剪贴板");
+                } catch (Exception ex) {
+                    logger.logToError("复制接口名称到剪贴板时发生错误: " + ex.getMessage());
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(
+                                null,
+                                "复制过程中发生错误：" + ex.getMessage(),
+                                "错误",
+                                JOptionPane.ERROR_MESSAGE);
+                    });
+                }
+            }).start();
+        }
+    }
+    
+    /**
+     * 复制选中请求接口名称到剪贴板动作监听器
+     */
+    private class CopySelectedToClipboardActionListener implements ActionListener {
+        private final List<HttpRequestResponse> selectedRequests;
+        
+        public CopySelectedToClipboardActionListener(List<HttpRequestResponse> selectedRequests) {
+            this.selectedRequests = selectedRequests;
+        }
+        
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            new Thread(() -> {
+                try {
+                    Set<String> interfaceNames = historyProcessor.extractInterfaceNamesFromSelected(selectedRequests);
+                    
+                    if (interfaceNames.isEmpty()) {
+                        SwingUtilities.invokeLater(() -> {
+                            JOptionPane.showMessageDialog(
+                                    null,
+                                    "未从选中的请求中找到任何接口名称。\n请检查请求内容和提取规则配置。",
+                                    "提示",
+                                    JOptionPane.INFORMATION_MESSAGE);
+                        });
+                        return;
+                    }
+                    
+                    // 将接口名称转换为字符串，每行一个
+                    String result = String.join("\n", interfaceNames);
+                    
+                    // 复制到剪贴板
+                    copyToClipboard(result);
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(
+                                null,
+                                "已复制 " + interfaceNames.size() + " 个不重复的接口名称到剪贴板！\n可用于检查接口测试覆盖情况。",
+                                "复制成功",
+                                JOptionPane.INFORMATION_MESSAGE);
+                    });
+                    
+                    logger.logToOutput("已复制 " + interfaceNames.size() + " 个接口名称到剪贴板");
+                } catch (Exception ex) {
+                    logger.logToError("复制选中请求接口名称到剪贴板时发生错误: " + ex.getMessage());
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(
+                                null,
+                                "复制过程中发生错误：" + ex.getMessage(),
+                                "错误",
+                                JOptionPane.ERROR_MESSAGE);
+                    });
+                }
+            }).start();
+        }
+    }
+    
+    /**
+     * 复制文本到系统剪贴板
+     * @param text 要复制的文本
+     */
+    private void copyToClipboard(String text) {
+        StringSelection stringSelection = new StringSelection(text);
+        Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+        clipboard.setContents(stringSelection, null);
     }
 
     /**
