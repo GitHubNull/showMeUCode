@@ -2,7 +2,6 @@ package org.oxff.http;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.Annotations;
-import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.handler.HttpRequestToBeSent;
 import burp.api.montoya.logging.Logging;
 import org.oxff.config.ConfigManager;
@@ -15,7 +14,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * 请求处理器: 负责处理HTTP请求，提取接口名称并添加到注释中
+ * 请求处理器: 负责处理HTTP请求，提取接口名称并返回带有备注的Annotations
  */
 public class RequestProcessor {
     // Burp Suite API
@@ -26,6 +25,33 @@ public class RequestProcessor {
     private final ConfigManager configManager;
     // 提取器工厂
     private final ExtractorFactory extractorFactory;
+    
+    /**
+     * 处理结果类: 包含请求和Annotations
+     */
+    public static class ProcessResult {
+        private final HttpRequestToBeSent request;
+        private final Annotations annotations;
+        private final boolean modified;
+        
+        public ProcessResult(HttpRequestToBeSent request, Annotations annotations, boolean modified) {
+            this.request = request;
+            this.annotations = annotations;
+            this.modified = modified;
+        }
+        
+        public HttpRequestToBeSent getRequest() {
+            return request;
+        }
+        
+        public Annotations getAnnotations() {
+            return annotations;
+        }
+        
+        public boolean isModified() {
+            return modified;
+        }
+    }
     
     /**
      * 构造函数: 初始化请求处理器
@@ -40,37 +66,30 @@ public class RequestProcessor {
     }
     
     /**
-     * 处理HTTP请求: 检查请求是否匹配配置的URL模式，然后提取接口名称并添加到注释中
+     * 处理HTTP请求: 检查请求是否匹配配置的URL模式，然后提取接口名称并返回处理结果
      * @param request 需要处理的HTTP请求
-     * @return 处理后的HTTP请求
+     * @return 处理结果，包含Annotations
      */
-    public HttpRequestToBeSent processRequest(HttpRequestToBeSent request) {
+    public ProcessResult processRequest(HttpRequestToBeSent request) {
         try {
             // 获取请求URL
             String url = request.url();
             
             // 检查URL是否匹配配置的模式
             if (!isUrlMatchPattern(url)) {
-                return request;
+                return new ProcessResult(request, request.annotations(), false);
             }
             
             // 获取请求体
             String body = request.bodyToString().trim();
             if (body.isEmpty()) {
-                return request;
+                return new ProcessResult(request, request.annotations(), false);
             }
-            
-            // 获取Content-Type头
-            Optional<HttpHeader> contentTypeHeader = request.headers().stream()
-                    .filter(header -> header.name().equalsIgnoreCase("Content-Type"))
-                    .findFirst();
-            
-            String contentType = contentTypeHeader.isPresent() ? contentTypeHeader.get().value() : "";
             
             // 尝试提取接口名称
             Optional<String> interfaceNameOpt = extractInterfaceName(body);
             if (!interfaceNameOpt.isPresent()) {
-                return request;
+                return new ProcessResult(request, request.annotations(), false);
             }
             
             String interfaceName = interfaceNameOpt.get();
@@ -78,17 +97,14 @@ public class RequestProcessor {
             // 将接口名称添加到请求备注中
             logger.logToOutput("从请求 [" + url + "] 中提取到接口: " + interfaceName);
             
-            // 获取请求的注释对象并修改
-            Annotations annotations = request.annotations();
-            annotations.setNotes(interfaceName);
-//            annotations.setHighlightColor(HighlightColor.BLUE);
+            // 创建带有备注的Annotations
+            Annotations annotations = Annotations.annotations(interfaceName);
             
-            // 直接返回原始请求，注释已经设置
-            return request;
+            return new ProcessResult(request, annotations, true);
         } catch (Exception e) {
             logger.logToError("处理请求时发生错误: " + e.getMessage());
             e.printStackTrace();
-            return request;
+            return new ProcessResult(request, request.annotations(), false);
         }
     }
     

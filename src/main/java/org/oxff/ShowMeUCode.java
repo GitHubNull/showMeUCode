@@ -11,6 +11,7 @@ import burp.api.montoya.http.handler.ResponseReceivedAction;
 import burp.api.montoya.logging.Logging;
 import org.oxff.config.ConfigManager;
 import org.oxff.http.RequestProcessor;
+import org.oxff.http.RequestProcessor.ProcessResult;
 import org.oxff.ui.ConfigTab;
 import org.oxff.ui.ContextMenuHandler;
 
@@ -129,9 +130,11 @@ public class ShowMeUCode implements BurpExtension, HttpHandler {
                 return RequestToBeSentAction.continueWith(httpRequestToBeSent);
             }
             
-            // 处理请求，提取接口名称并添加到注释中
-            HttpRequestToBeSent processedRequest = requestProcessor.processRequest(httpRequestToBeSent);
-            return RequestToBeSentAction.continueWith(processedRequest);
+            // 处理请求，提取接口名称
+            ProcessResult result = requestProcessor.processRequest(httpRequestToBeSent);
+            
+            // 使用带有annotations的continueWith方法，确保备注被正确设置
+            return RequestToBeSentAction.continueWith(result.getRequest(), result.getAnnotations());
         } catch (Exception e) {
             logger.logToError("处理HTTP请求时发生错误: " + e.getMessage());
             return RequestToBeSentAction.continueWith(httpRequestToBeSent);
